@@ -1,5 +1,6 @@
 from flask import Flask
 from .db import db, migrate
+from .models import book
 from .routes.book_routes import books_bp
 
 def create_app():
