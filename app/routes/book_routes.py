@@ -1,4 +1,4 @@
-from flask import Blueprint, abort, make_response, request
+from flask import Blueprint, abort, make_response, request, Response
 from ..models.book import Book
 from ..db import db
 
@@ -24,11 +24,21 @@ def create_book():
 
 @books_bp.get("")
 def get_all_books():
-    query = db.select(Book).order_by(Book.id)
+    query = db.select(Book)
+
+    title_param = request.args.get("title")
+    if title_param:
+        query = query.where(Book.title.like(f"%{title_param}%"))
+
+    description_param = request.args.get("description")
+    if description_param:
+        query = query.where(Book.description.ilike(f"%{description_param}%"))
+        
+    query = query.order_by(Book.id)
     books = db.session.scalars(query)
     # We could also write the line above as:
     # books = db.session.execute(query).scalars()
-
+    
     books_response = []
     for book in books:
         books_response.append(
@@ -40,30 +50,44 @@ def get_all_books():
         )
     return books_response
 
-# @books_bp.get("/<book_id>")
-# def get_one_book(book_id):
+@books_bp.get("/<id>")
+def get_one_book(id):
+    book = validate_book(id)
+    return {
+                "id": book.id,
+                "title": book.title,
+                "description": book.description
+            }
 
-#     book_id = validate_book(book_id)
+@books_bp.put("/<id>")
+def update_book(id):
+    book = validate_book(id)
 
-#     for book in books:
-#         if book.id == book_id:
-#             return {
-#                 "id": book.id,
-#                 "title": book.title,
-#                 "description": book.description,
-#             }
-#     return {"message": f"book {book_id} not found"}, 404
+    request_body = request.get_json()
+    book.title = request_body["title"]
+    book.description = request_body["description"]
+    db.session.commit()
 
-# def validate_book(book_id):
-#     try:
-#         book_id = int(book_id)
-#     except:
-#         response = {"message": f"book {book_id} invalid"}
-#         abort(make_response(response, 400))
+    return Response(status=204, mimetype="application/json")
 
-#     for book in books:
-#         if book.id == book_id:
-#             return book
+@books_bp.delete("/<id>")
+def delete_book(id):
+    book = validate_book(id)
+    db.session.delete(book)
+    db.session.commit()
+    return Response(status=204, mimetype="application/json")
 
-#     response = {"message": f"book {book_id} not found"}
-#     abort(make_response(response, 404))
+def validate_book(id):
+    try:
+        book_id = int(id)
+    except ValueError:
+        response = {"message": f"book {id} invalid"}
+        abort(make_response(response, 400))
+
+    query = db.select(Book).where(Book.id == id)
+    book = db.session.scalar(query)
+    if not book:
+        response = {"message": f"book {id} not found"}
+        abort(make_response(response, 404))
+
+    return book
