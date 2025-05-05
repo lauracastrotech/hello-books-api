@@ -11,7 +11,8 @@ def create_app(config=None):
 
     if config:
         app.config.update(config)
-        
+
+    # Initialize dbatabase   
     db.init_app(app)
     migrate.init_app(app, db)
 

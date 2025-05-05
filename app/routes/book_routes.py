@@ -36,8 +36,6 @@ def get_all_books():
         
     query = query.order_by(Book.id)
     books = db.session.scalars(query)
-    # We could also write the line above as:
-    # books = db.session.execute(query).scalars()
     
     books_response = []
     for book in books:
